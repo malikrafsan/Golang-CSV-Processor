@@ -1,12 +1,9 @@
 package csv
 
 import (
-	"encoding/csv"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/malikrafsan/Golang-CSV-Processor/src/contracts"
@@ -31,7 +28,6 @@ func UploadCSV(c *gin.Context) {
 		resp := contracts.FailedResponse(
 			"Invalid file type",
 			http.StatusBadRequest)
-
 		c.IndentedJSON(http.StatusBadRequest, resp)
 		return
 	}
@@ -47,12 +43,21 @@ func UploadCSV(c *gin.Context) {
 	}
 
 	dst := "dumps/" + fileID + extension
-
 	err = c.SaveUploadedFile(file, dst)
 	if err != nil {
 		log.Println(err)
 		resp := contracts.FailedResponse(
 			"Failed to save uploaded file",
+			http.StatusInternalServerError)
+		c.IndentedJSON(http.StatusInternalServerError, resp)
+		return
+	}
+
+	err = ProcessFile(c.Request.Context(), file, fileID)
+	if err != nil {
+		log.Println(err)
+		resp := contracts.FailedResponse(
+			"Failed to process file",
 			http.StatusInternalServerError)
 		c.IndentedJSON(http.StatusInternalServerError, resp)
 		return
@@ -67,60 +72,22 @@ func UploadCSV(c *gin.Context) {
 }
 
 func GetProcessedCSV(c *gin.Context) {
+	ctx := c.Request.Context()
+
 	fileID := c.Query("file_id")
 
-	pathname := "dumps/" + fileID + ".csv"
-	f, err := os.Open(pathname)
+	data, err := GetProcessedFile(ctx, fileID)
 	if err != nil {
 		log.Println(err)
-
 		resp := contracts.FailedResponse(
-			"File not found",
-			http.StatusNotFound)
-		c.IndentedJSON(http.StatusNotFound, resp)
-		return
-	}
-
-	csvReader, err := csv.NewReader(f).ReadAll()
-	if err != nil {
-		log.Println(err)
-
-		resp := contracts.FailedResponse(
-			"Failed to read file",
+			"Failed to get processed file",
 			http.StatusInternalServerError)
 		c.IndentedJSON(http.StatusInternalServerError, resp)
 		return
 	}
-
-	sums, err := SumCSV(&csvReader)
-	if err != nil {
-		log.Println(err)
-
-		resp := contracts.FailedResponse(
-			"Failed to sum file",
-			http.StatusInternalServerError)
-		c.IndentedJSON(http.StatusInternalServerError, resp)
-		return
-	}
-
-	strSums, err := utils.IntSliceToStrSlice(&sums)
-	if err != nil {
-		log.Println(err)
-
-		resp := contracts.FailedResponse(
-			"Failed to convert sums to string",
-			http.StatusInternalServerError)
-		c.IndentedJSON(http.StatusInternalServerError, resp)
-		return
-	}
-
-	strSumsJoined := strings.Join(strSums, ",")
 
 	resp := contracts.SuccessResponse(
 		"File processed successfully",
-		GetProcessedCSVData{
-			FileID: fileID,
-			Sum:    strSumsJoined,
-		})
+		data)
 	c.IndentedJSON(http.StatusOK, resp)
 }
