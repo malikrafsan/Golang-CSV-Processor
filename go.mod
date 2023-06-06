@@ -2,7 +2,10 @@ module github.com/malikrafsan/Golang-CSV-Processor
 
 go 1.18
 
-require github.com/gin-gonic/gin v1.9.1
+require (
+	github.com/gin-gonic/gin v1.9.1
+	github.com/go-errors/errors v1.4.2
+)
 
 require (
 	github.com/bytedance/sonic v1.9.1 // indirect
